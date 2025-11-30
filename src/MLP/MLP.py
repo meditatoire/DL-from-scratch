@@ -4,6 +4,10 @@ class Module:
     def __call__(self, *args):
         return self.forward(*args)
 
+    def parameters(self):
+        """ return a list of (parameter, gradient) tuples """
+        return []
+
 class Dense(Module):
     def __init__(self, in_dim, out_dim, device=None):
         super().__init__()
@@ -30,6 +34,9 @@ class Dense(Module):
         grad_input = grad_output.matmul(self.weight.T)
         return grad_input
 
+    def parameters(self):
+        return [(self.weight, self.grad_weight), (self.bias, self.grad_bias)]
+
 class MLP(Module):
     def __init__(self, layers):
         super().__init__()
@@ -44,6 +51,12 @@ class MLP(Module):
         for layer in reversed(self.layers):
             grad = layer.backward(grad)
         return grad
+
+    def parameters(self):
+        params = []
+        for layer in self.layers:
+            params.extend(layer.parameters())
+        return params
 
 class MSE(Module):
     def forward(self, pred, target):

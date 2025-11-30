@@ -1,6 +1,5 @@
 import torch
 import matplotlib.pyplot as plt
-from MLP import Dense
 
 class Optimizer:
     def __init__(self, model, learning_rate):
@@ -11,18 +10,16 @@ class Optimizer:
         raise NotImplementedError
 
     def zero_grad(self):
-        for layer in self.model.layers:
-            if isinstance(layer, Dense):
-                layer.grad_weight = torch.zeros_like(layer.weight)
-                layer.grad_bias = torch.zeros_like(layer.bias)
+        for params,grad in self.model.parameters():
+            if grad is not None:
+                grad.zero_()
 
 
 class GradientDescent(Optimizer):
     def step(self):
-        for layer in self.model.layers:
-            if isinstance(layer, Dense):
-                layer.weight -= layer.grad_weight * self.learning_rate
-                layer.bias -= layer.grad_bias * self.learning_rate
+        for params,grad in self.model.parameters():
+            if grad is not None:
+                params -= grad * self.learning_rate
 
 class DataLoader:
     def __init__(self, X, y, batch_size=32, shuffle = True):
