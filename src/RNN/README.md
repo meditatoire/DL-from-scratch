@@ -305,4 +305,9 @@ sample = generate_text(model, 'the ', 100, vocab, char_to_idx, idx_to_char)
 
 ---
 
-**Understanding RNNs is key to modern NLP!** (Even though Transformers have largely replaced them, the core concepts remain essential.)
+## Dataset Credit
+
+The `tinyshakespeare.txt` file is the **Tiny Shakespeare** dataset, a concatenation of all works by William Shakespeare (~1MB), widely used as a character-level language modeling benchmark.
+
+> **Compiled by**: [Andrej Karpathy](https://github.com/karpathy/char-rnn) as part of the `char-rnn` project.
+> The original texts are in the public domain.
