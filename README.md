@@ -17,7 +17,8 @@ DL-from-scratch/
 ├── src/
 │   ├── MLP/          # Multi-Layer Perceptron with custom backprop
 │   ├── CNN/          # Convolutional Neural Network from scratch
-│   └── RNN/          # Recurrent Neural Networks (Vanilla, LSTM, GRU)
+│   ├── RNN/          # Recurrent Neural Networks (Vanilla, LSTM, GRU)
+│   └── Transformers/ # Full Transformer (encoder-decoder, multi-head attention)
 └── assets/           # Images and resources
 ```
 
@@ -49,6 +50,13 @@ DL-from-scratch/
   - Architecture benchmarking
 - **Features**: Character-level language modeling with one-hot encoding
 
+### [Transformers - Sequence-to-Sequence](src/Transformers/)
+- **Full Encoder-Decoder Transformer** from "Attention Is All You Need"
+- **Components**: Scaled dot-product attention, multi-head attention, positional encoding, FFN, Add & Norm
+- **Training**: Teacher forcing, masked cross-entropy loss, gradient clipping
+- **Inference**: Autoregressive decoding with KV cache
+- **Example**: English → French character-level translation
+
 ## Requirements
 
 ```bash
@@ -62,6 +70,7 @@ Each module has its own detailed README with mathematical formulas and usage exa
 - **[MLP Documentation](src/MLP/README.md)** - Backpropagation math, layer implementations
 - **[CNN Documentation](src/CNN/README.md)** - Convolution operations, pooling layers
 - **[RNN Documentation](src/RNN/README.md)** - RNN variants, LSTM/GRU architectures
+- **[Transformer Documentation](src/Transformers/README.md)** - Attention mechanism, encoder-decoder architecture
 
 ### Example: Training an MLP
 
@@ -96,5 +105,7 @@ This project helps you understand:
 - Why LSTM/GRU solve vanishing gradient problems
 - Proper weight initialization (Kaiming/He)
 - Numerical stability tricks (log-sum-exp for softmax in MLP)
+- How self-attention replaces recurrence (Transformers)
+- Encoder-decoder architectures for sequence-to-sequence tasks
 
 **Dive into each module's README for detailed mathematical formulas and implementation notes!**
