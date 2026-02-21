@@ -50,14 +50,18 @@ $$\text{head}_i = \text{Attention}(Q W^Q_i,\ K W^K_i,\ V W^V_i)$$
 
 All heads are computed at once by reshaping tensors: `[batch, seq, d_model]` → `[batch × heads, seq, d_model/heads]`.
 
-**Core Implementation** (`transformers.py:45-86`):
+**Core Implementation** (`transformers.py:72-86`):
 
 ```python
-Q = self.transpose_qkv(self.W_q(Q))  # split into heads
-K = self.transpose_qkv(self.W_k(K))
-V = self.transpose_qkv(self.W_v(V))
-output = self.attention(Q, K, V, valid_lens)
-return self.W_o(self.transpose_output(output))  # merge heads
+def forward(self, Q, K, V, valid_lens):
+    Q = self.transpose_qkv(self.W_q(Q))
+    K = self.transpose_qkv(self.W_k(K))
+    V = self.transpose_qkv(self.W_v(V))
+    if valid_lens is not None:
+        valid_lens = torch.repeat_interleave(valid_lens, self.num_heads, dim=0)
+    output = self.attention(Q, K, V, valid_lens)
+    output_concat = self.transpose_output(output)
+    return self.W_o(output_concat)
 ```
 
 ---
@@ -70,12 +74,14 @@ $$PE_{(pos, 2i)} = \sin\!\left(\frac{pos}{10000^{2i/d}}\right)$$
 
 $$PE_{(pos, 2i+1)} = \cos\!\left(\frac{pos}{10000^{2i/d}}\right)$$
 
-**Core Implementation** (`transformers.py:88-101`):
+The encodings are pre-computed in `__init__` (`transformers.py:88-101`) and simply added to the embeddings at forward time:
 
 ```python
-def forward(self, X):
-    X = X + self.P[:, :X.shape[1], :].to(X.device)
-    return X
+pos   = torch.arange(max_len).reshape(-1, 1)          # (max_len, 1)
+term  = torch.pow(10000, indices / num_hidden)         # (d/2,)
+X     = pos / term                                     # (max_len, d/2)
+self.P[:, :, 0::2] = torch.sin(X)                     # even dims
+self.P[:, :, 1::2] = torch.cos(X)                     # odd dims
 ```
 
 Each position gets a unique encoding, and relative positions are implicitly captured by the sinusoidal pattern.
@@ -132,21 +138,20 @@ Stacks $N$ identical decoder blocks. Each block has **three** sub-layers:
 2. **Cross-attention** — queries come from decoder, keys/values from encoder output
 3. **Position-wise FFN**
 
-A **KV cache** (`state[2]`) accumulates past key-value pairs during inference to avoid recomputation.
+A **KV cache** (`state[2]`) accumulates past key-value pairs during inference to avoid recomputation. See `transformers.py:186-204` for the full block structure.
 
-**Core Implementation** (`transformers.py:186-204`):
+The KV cache itself (`transformers.py:188-192`):
 
 ```python
-def forward(self, X, state):
-    enc_output, enc_valid_lens = state[0], state[1]
-    # Causal mask during training
-    dec_valid_lens = torch.arange(1, num_steps + 1).repeat(batch_size, 1)
-    X2 = self.attention1(X, key_values, key_values, dec_valid_lens)   # masked self-attn
-    Y  = self.addnorm1(X, X2)
-    Y2 = self.attention2(Y, enc_output, enc_output, enc_valid_lens)   # cross-attn
-    Z  = self.addnorm2(Y, Y2)
-    return self.addnorm3(Z, self.ffn(Z)), state
+# During inference, concatenate new token's K/V with all previous ones
+if state[2][self.i] is None:
+    key_values = X                                    # first step: no cache yet
+else:
+    key_values = torch.cat((state[2][self.i], X), dim=1)  # append to cache
+state[2][self.i] = key_values                        # store updated cache
 ```
+
+This means the self-attention at step $t$ attends over all tokens $1, \ldots, t$ without recomputing past representations.
 
 ---
 
@@ -227,9 +232,8 @@ Attention is $O(n^2 \cdot d)$ in sequence length — quadratic! Efficient for mo
 
 ### 3. Causal Masking
 
-The decoder uses a triangular mask so position $t$ can only see positions $1, \ldots, t$:
-
-$$\text{dec\_valid\_lens}[i, t] = t \quad \Rightarrow \quad \text{mask upper triangle}$$
+The decoder uses a triangular mask so position $t$ can only see positions $1, \ldots, t$.
+This is implemented by setting `dec_valid_lens[i, t] = t`, which tells `MaskedSoftmax` to zero out all future positions — effectively masking the upper triangle of the attention matrix.
 
 ### 4. KV Cache
 
